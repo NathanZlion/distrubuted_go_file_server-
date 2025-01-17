@@ -119,9 +119,18 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 
 	rpc := RPC{}
 	for {
-		if err := t.Decoder.Decode(conn, &rpc); err != nil {
-			fmt.Printf("TCP decoding error %s\n", err)
-			continue
+		err := t.Decoder.Decode(conn, &rpc)
+
+		if err == net.ErrClosed {
+			fmt.Printf("TCP Network Closed %s\n", err)
+			return
+		}
+
+		if err != nil {
+			// fmt.Println(reflect.TypeOf(err))
+			// fmt.Printf("TCP Read error %s\n", err)
+			// continue
+			return
 		}
 
 		rpc.From = conn.RemoteAddr()

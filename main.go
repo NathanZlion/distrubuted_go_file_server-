@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"github.com/NathanZlion/distruted_go_file_server-/p2p"
 	"log"
@@ -10,7 +9,8 @@ import (
 
 func OnPeer(peer p2p.Peer) error {
 	if randomNum := rand.Intn(3); randomNum >= 1 {
-		return errors.New("Peer Blocked")
+		// return errors.New("Peer Blocked")
+		return nil
 	}
 	return nil
 }
