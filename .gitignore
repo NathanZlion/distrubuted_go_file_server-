@@ -25,3 +25,7 @@ go.work.sum
 .env
 
 /bin/
+
+
+# Store files used for testing
+*_network_storage/

@@ -3,11 +3,9 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"log"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"io"
+	"testing"
 )
 
 func TestPathTransformFunc(t *testing.T) {
@@ -28,17 +26,14 @@ func TestPathTransformFunc(t *testing.T) {
 }
 
 func TestStore(t *testing.T) {
-	opts := StoreOpts{
-		PathTransformFunc: CASPathTransformFunc,
-	}
-
-	s := NewStore(opts)
+	s := newStoreHelper()
+	defer tearDown(t, s)
 
 	// let's make some random bytes
-	testdata := []byte("This is a test content!")
 	testkey := "testkey"
+	testdata := []byte("This is a test content!")
 
-	err := s.WriteStream(testkey, bytes.NewReader(testdata))
+	_, err := s.WriteStream(testkey, bytes.NewReader(testdata))
 	assert.Nil(t, err)
 
 	reader, err := s.ReadStream(testkey)
@@ -51,50 +46,49 @@ func TestStore(t *testing.T) {
 	s.Delete(testkey)
 }
 
-func TestStoreDelete(t *testing.T) {
-	opts := StoreOpts{
-		PathTransformFunc: CASPathTransformFunc,
-	}
-
-	s := NewStore(opts)
-
-	// let's make some random bytes
-	testkey := "testkey"
+func TestStoreIntegration(t *testing.T) {
+	s := newStoreHelper()
+	defer tearDown(t, s)
 	testdata := []byte("This is a test content!")
 
-	err := s.WriteStream(testkey, bytes.NewReader(testdata))
+	for round := range 5 {
+		testkey := fmt.Sprintf("foo%v", round)
 
-	assert.Nil(t, err)
+		// Write
+		_, err := s.WriteStream(testkey, bytes.NewReader(testdata))
+		assert.Nil(t, err)
 
-	err = s.Delete(testkey)
-	assert.Nil(t, err)
+		// Read
+		reader, err := s.ReadStream(testkey)
+		assert.Nil(t, err)
+		b, err := io.ReadAll(reader)
+		assert.Nil(t, err)
+		assert.Equal(t, testdata, b)
 
-	_, err = s.ReadStream(testkey)
+		// Has
+		ok := s.Has(testkey)
+		assert.True(t, ok)
 
-	log.Printf("%+v", err)
+		// Delete
+		err = s.Delete(testkey)
+		assert.Nil(t, err)
 
-	assert.NotNil(t, err)
+		ok = s.Has(testkey)
+		assert.False(t, ok)
+	}
 }
 
-func TestStoreHas(t *testing.T) {
+func newStoreHelper() *Store {
 	opts := StoreOpts{
 		PathTransformFunc: CASPathTransformFunc,
 	}
 
-	s := NewStore(opts)
+	return NewStore(opts)
+}
 
-	testkey := "testkey"
-	testdata := []byte("This is a test content!")
-
-	err := s.WriteStream(testkey, bytes.NewReader(testdata))
-	assert.Nil(t, err)
-
-	ok := s.Has(testkey)
-	assert.True(t, ok)
-
-	err = s.Delete(testkey)
-	assert.Nil(t, err)
-
-	ok = s.Has(testkey)
-	assert.False(t, ok)
+// we want to clear everything in the store
+func tearDown(t *testing.T, s *Store) {
+	if err := s.Clear(); err != nil {
+		t.Error(err)
+	}
 }

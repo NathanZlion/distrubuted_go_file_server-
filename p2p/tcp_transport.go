@@ -9,21 +9,23 @@ import (
 // a peer connected to us with TCP
 type TCPPeer struct {
 	// underlying connection of peer
-	conn net.Conn
+	net.Conn
 	// If we initiated the connection it's outbound
 	// if accepting an incoming connection it's inbound
 	outbound bool
+
+	Wg *sync.WaitGroup
 }
 
-func (peer *TCPPeer) Close() error {
-	err := peer.conn.Close()
-	return err
+func DefaultOnPeer(peer Peer) error {
+	return nil
 }
 
 func NewTCPPeer(conn net.Conn, outbound bool) *TCPPeer {
 	return &TCPPeer{
-		conn:     conn,
+		Conn:     conn,
 		outbound: outbound,
+		Wg:       &sync.WaitGroup{},
 	}
 }
 
@@ -31,23 +33,15 @@ type TCPTransportOpts struct {
 	ListenAddress string
 	HandShakeFunc HandshakeFunc
 	Decoder       Decoder
-	OnPeer        func(Peer) error
+	OnPeer        func(peer Peer) error
 }
 
 type TCPTransport struct {
 	TCPTransportOpts
 	listener net.Listener
 	rpcChan  chan RPC
-
-	mu    sync.RWMutex // protects the peer communication
-	peers map[net.Addr]Peer
-	/**
-	type Addr interface
-	{
-		Network() string // name of the network (for example, "tcp", "udp")
-		String() string  // string form of address (for example, "192.0.2.1:25", "[2001:db8::1]:80")
-	}
-	*/
+	mu       sync.RWMutex
+	peers    map[net.Addr]Peer
 }
 
 func NewTcpTransport(otps TCPTransportOpts) *TCPTransport {
@@ -67,11 +61,14 @@ func (t *TCPTransport) ListenAndAccept() error {
 		return err
 	}
 
-	fmt.Printf("Started Listening %v\n\n", t.ListenAddress)
-
 	go t.startAcceptLoop()
 
+	fmt.Printf("Started Listening on port %v\n", t.ListenAddress)
 	return nil
+}
+
+func (t *TCPTransport) ListenAddr() net.Addr {
+	return t.listener.Addr()
 }
 
 // the <- here makes the channel read only form this method
@@ -85,32 +82,37 @@ func (t *TCPTransport) startAcceptLoop() {
 		conn, err := t.listener.Accept()
 
 		if err != nil {
-			fmt.Println("TCP: accept listener error")
+			return
 		} else {
-			go t.handleConn(conn)
+			go t.handleConn(conn, false)
 		}
 	}
 }
 
 // handle incoming connection requests
-func (t *TCPTransport) handleConn(conn net.Conn) {
+func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 	var err error
 
 	defer func() {
-		fmt.Printf("Peer connection dropped: %s \n", err)
+		fmt.Printf("Peer connection dropped\n")
+		if err != nil {
+			fmt.Printf("Error: %s \n", err)
+		}
 		conn.Close()
 	}()
 
-	peer := NewTCPPeer(conn, false)
+	peer := NewTCPPeer(conn, outbound)
 
 	// try the handshake, if not successfull say goodbye to the peer
 	if err = t.HandShakeFunc(peer); err != nil {
+		err = err
 		return
 	}
 
 	// add it to the peers map
 	if t.OnPeer != nil {
 		if err = t.OnPeer(peer); err != nil {
+			err = err
 			return
 		}
 	}
@@ -127,13 +129,42 @@ func (t *TCPTransport) handleConn(conn net.Conn) {
 		}
 
 		if err != nil {
-			// fmt.Println(reflect.TypeOf(err))
-			// fmt.Printf("TCP Read error %s\n", err)
-			// continue
 			return
 		}
 
-		rpc.From = conn.RemoteAddr()
+		rpc.From = conn.RemoteAddr().String()
+
+		// read key and start the wait group
+		peer.Wg.Add(1)
+		fmt.Println("Waitgroup blocked waiting for streaming of file to be done")
 		t.rpcChan <- rpc
+		peer.Wg.Wait()
+		fmt.Println("Done waiting")
 	}
+}
+
+func (t *TCPTransport) Close() error {
+	err := t.listener.Close()
+	// for peer := range t.peers {
+	// 	pee := t.peers[peer]
+	// 	pee.Close()
+	// }
+	return err
+}
+
+func (p *TCPPeer) Send(b []byte) error {
+	_, err := p.Write(b)
+	return err
+}
+
+func (t *TCPTransport) Dial(addr string) error {
+	conn, err := net.Dial("tcp", addr)
+
+	if err != nil {
+		return err
+	}
+
+	go t.handleConn(conn, true)
+
+	return nil
 }

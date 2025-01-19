@@ -19,7 +19,7 @@ func (dec GOBDecoder) Decode(r io.Reader, msg *RPC) error {
 type DefaultDecoder struct{}
 
 func (dec DefaultDecoder) Decode(r io.Reader, msg *RPC) error {
-	buff := make([]byte, 2000)
+	buff := make([]byte, 10000)
 	n, err := r.Read(buff)
 
 	if err != nil {
