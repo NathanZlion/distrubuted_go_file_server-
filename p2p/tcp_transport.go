@@ -136,10 +136,10 @@ func (t *TCPTransport) handleConn(conn net.Conn, outbound bool) {
 
 		// read key and start the wait group
 		peer.Wg.Add(1)
-		fmt.Println("Waitgroup blocked waiting for streaming of file to be done")
+		fmt.Println("Waitgroup Blocked Waiting")
 		t.rpcChan <- rpc
 		peer.Wg.Wait()
-		fmt.Println("Done waiting")
+		fmt.Println("Waitgroup Done Waiting")
 	}
 }
 

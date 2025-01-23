@@ -75,7 +75,7 @@ func (pathKey *Pathkey) FullPath(root string) string {
 	return root + "/" + pathKey.PathName + "/" + pathKey.FileName
 }
 
-func (s *Store) WriteStream(key string, r io.Reader) (int, error) {
+func (s *Store) Write(key string, r io.Reader) (int, error) {
 	pathKey := s.PathTransformFunc(key)
 	var err error
 
@@ -107,7 +107,7 @@ func (s *Store) WriteStream(key string, r io.Reader) (int, error) {
 	return int(written), nil
 }
 
-func (s *Store) ReadStream(key string) (io.Reader, error) {
+func (s *Store) Read(key string) (io.Reader, error) {
 	pathKey := s.PathTransformFunc(key)
 
 	fileReader, err := os.Open(pathKey.FullPath(s.Root))

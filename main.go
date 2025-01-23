@@ -1,7 +1,10 @@
 package main
 
 import (
+	// "bytes"
 	"bytes"
+	"fmt"
+	"io"
 	"log"
 	"time"
 
@@ -46,8 +49,22 @@ func main() {
 
 	time.Sleep(time.Second * 1)
 
-	data := bytes.NewReader([]byte("Gugu Gaga Iglabo"))
-	server1.StoreFile("My Data", data)
+	data := bytes.NewReader([]byte("Gugu Gaga Iglabo ulala"))
+	server1.Store("My Data", data)
+
+	time.Sleep(time.Second * 2)
+
+	r, err := server2.Get("My Data")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	b, err := io.ReadAll(r)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Read Data, %s Error %+v \n", string(b))
 
 	select {}
 }

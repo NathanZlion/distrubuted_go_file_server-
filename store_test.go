@@ -3,9 +3,10 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestPathTransformFunc(t *testing.T) {
@@ -33,10 +34,10 @@ func TestStore(t *testing.T) {
 	testkey := "testkey"
 	testdata := []byte("This is a test content!")
 
-	_, err := s.WriteStream(testkey, bytes.NewReader(testdata))
+	_, err := s.Write(testkey, bytes.NewReader(testdata))
 	assert.Nil(t, err)
 
-	reader, err := s.ReadStream(testkey)
+	reader, err := s.Read(testkey)
 	assert.Nil(t, err)
 
 	b, err := io.ReadAll(reader)
@@ -55,11 +56,11 @@ func TestStoreIntegration(t *testing.T) {
 		testkey := fmt.Sprintf("foo%v", round)
 
 		// Write
-		_, err := s.WriteStream(testkey, bytes.NewReader(testdata))
+		_, err := s.Write(testkey, bytes.NewReader(testdata))
 		assert.Nil(t, err)
 
 		// Read
-		reader, err := s.ReadStream(testkey)
+		reader, err := s.Read(testkey)
 		assert.Nil(t, err)
 		b, err := io.ReadAll(reader)
 		assert.Nil(t, err)
