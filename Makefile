@@ -12,7 +12,8 @@ clean:
 	@rm -rf ./test_store_root
 	@go clean -i ./...
 
-lint:
-	@golangci-lint run
+format:
+	@echo "Formatting code..."
+	@go fmt ./...
 
 .PHONY: build run test clean
