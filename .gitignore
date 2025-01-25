@@ -28,4 +28,4 @@ go.work.sum
 
 
 # Store files used for testing
-*_network_storage/
+test_store_root/

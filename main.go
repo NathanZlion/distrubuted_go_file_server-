@@ -1,7 +1,6 @@
 package main
 
 import (
-	// "bytes"
 	"bytes"
 	"fmt"
 	"io"
@@ -11,60 +10,59 @@ import (
 	"github.com/NathanZlion/distruted_go_file_server-/p2p"
 )
 
-func makeServer(listenAddr, storageRoot string, nodes ...string) *FileServer {
-	tcpTransportOpts := p2p.TCPTransportOpts{
-		ListenAddress: listenAddr,
-		HandShakeFunc: p2p.NopHandShakeFunc,
+func makeServer(listenAddr string, nodes ...string) *FileServer {
+	tcptransportOpts := p2p.TCPTransportOpts{
+		ListenAddr:    listenAddr,
+		HandshakeFunc: p2p.NOPHandshakeFunc,
 		Decoder:       p2p.DefaultDecoder{},
 	}
+	tcpTransport := p2p.NewTCPTransport(tcptransportOpts)
 
-	tcpTransport := p2p.NewTcpTransport(tcpTransportOpts)
-
-	fileServerOpts := FileServeropts{
-		ListenAddr:           listenAddr,
-		StorageRoot:          storageRoot,
-		PathTransformFunc:    CASPathTransformFunc,
-		Transport:            tcpTransport,
-		BootstrapServersList: nodes,
+	fileServerOpts := FileServerOpts{
+		EncKey:            newEncryptionKey(),
+		StorageRoot:       "test_store_root/" + listenAddr + "_network",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tcpTransport,
+		BootstrapNodes:    nodes,
 	}
 
-	fs := NewFileServer(fileServerOpts)
-	tcpTransport.OnPeer = fs.OnPeer
-	return fs
+	s := NewFileServer(fileServerOpts)
+
+	tcpTransport.OnPeer = s.OnPeer
+
+	return s
 }
 
 func main() {
-	server1 := makeServer(":3000", "3000_network_storage")
-	server2 := makeServer(":4000", "4000_network_storage", ":3000")
+	s1 := makeServer(":3000", "")
+	s3 := makeServer(":5000", ":3000", ":7000")
 
-	go func() {
-		if err := server1.Start(); err != nil {
+	go func() { log.Fatal(s1.Start()) }()
+
+	time.Sleep(2 * time.Second)
+
+	go s3.Start()
+	time.Sleep(2 * time.Second)
+
+	for i := 0; i < 5; i++ {
+		key := fmt.Sprintf("picture_%d.png", i)
+		data := bytes.NewReader([]byte("my big data file here!"))
+		s3.Store(key, data)
+
+		if err := s3.store.Delete(s3.ID, key); err != nil {
 			log.Fatal(err)
 		}
-	}()
 
-	time.Sleep(time.Second * 1)
+		r, err := s3.Get(key)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	go server2.Start()
+		b, err := io.ReadAll(r)
+		if err != nil {
+			log.Fatal(err)
+		}
 
-	time.Sleep(time.Second * 1)
-
-	data := bytes.NewReader([]byte("Gugu Gaga Iglabo ulala"))
-	server1.Store("My Data", data)
-
-	time.Sleep(time.Second * 2)
-
-	r, err := server2.Get("My Data")
-	if err != nil {
-		log.Fatal(err)
+		fmt.Println(string(b))
 	}
-
-	b, err := io.ReadAll(r)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Printf("Read Data, %s Error %+v \n", string(b))
-
-	select {}
 }

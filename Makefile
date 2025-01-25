@@ -9,4 +9,10 @@ test:
 
 clean:
 	@rm -rf ./bin
+	@rm -rf ./test_store_root
 	@go clean -i ./...
+
+lint:
+	@golangci-lint run
+
+.PHONY: build run test clean
